@@ -1,0 +1,112 @@
+apply plugin: 'base'
+apply plugin: 'java'
+apply plugin: 'maven'
+
+
+String mavenGroupId = 'org.occiware.mart'
+String mavenArtifactId = 'AWS Driver';
+String mavenVersion = '1.0'
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
+
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+
+
+task mergedJavadoc(type: Javadoc, description: 'Creates Javadoc from all the projects.') {
+    title = 'All modules'
+    destinationDir = new File(project.buildDir, 'merged-javadoc')
+
+    // Note: The closures below are executed lazily.
+    source {
+        subprojects*.sourceSets*.main*.allSource
+    }
+    classpath.from {
+        subprojects*.configurations*.compile*.copyRecursive({ !(it instanceof ProjectDependency); })*.resolve()
+    }
+}
+
+task wrapper(type: Wrapper, description: 'Creates and deploys the Gradle wrapper to the current directory.') {
+    gradleVersion = '2.1'
+}
+task('clearDomainCache', type: Delete, group: 'Utilities',
+        description: "Deletes any cached artifacts with the domain of com.woodscale in the Gradle or Maven2 cache directories.") << {
+    def props = project.properties
+    def userHome = System.getProperty('user.home')
+    def domain = props['domain'] ?: 'org.occiware.mart.driver.awsdriver'
+    def slashyDomain = domain.replaceAll(/\./, '/')
+    file("${userHome}/.gradle/caches").eachFile { cacheFile ->
+        if (cacheFile.name =~ "^$domain|^resolved-$domain") delete cacheFile.path
+    }
+    delete "${userHome}/.m2/repository/$slashyDomain"
+}
+
+// In this section you declare where to find the dependencies of your project
+repositories {
+    // check the local repository.
+    mavenLocal()
+    // If not found check maven central.
+    mavenCentral()
+}
+
+// In this section you declare the dependencies for your production and test code
+dependencies {
+    compile group: 'org.apache.ant', name: 'ant', version: '1.9.4'
+    compile 'log4j:log4j:1.2.17'
+
+    compile 'commons-logging:commons-logging:1.1.1'
+    compile 'commons-lang:commons-lang:2.6'
+
+    compile  'commons-httpclient:commons-httpclient:3.1'
+    compile  'org.apache.httpcomponents:httpclient:4.3.4'
+    compile  'com.google.guava:guava:18.0'
+
+    compile  'commons-codec:commons-codec:1.9'
+    compile  'org.apache.commons:commons-vfs2:2.0'
+    compile  'commons-collections:commons-collections:3.2.1'
+    compile  'commons-net:commons-net:3.1'
+
+    compile  'org.bouncycastle:bcpkix-jdk15on:1.50'
+
+    compile  'com.amazonaws:aws-java-sdk-core:1.11.66'
+    compile  'com.amazonaws:aws-java-sdk-config:1.11.66'
+    compile  'com.amazonaws:aws-java-sdk-ec2:1.11.66'
+    compile  'com.amazonaws:aws-java-sdk-s3:1.11.66'
+
+
+
+    // Declare the dependency for your favourite test framework you want to use in your tests.
+    // TestNG is also supported by the Gradle Test task. Just change the
+    // testCompile dependency to testCompile 'org.testng:testng:6.8.1' and add
+    // 'test.useTestNG()' to your build script.
+    testCompile "junit:junit:4.11"
+}
+
+group = mavenGroupId
+version = mavenVersion
+
+task sourcesJar(type: Jar, dependsOn: classes, description: 'Creates a jar from the source files.') {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+artifacts {
+    archives jar
+    archives sourcesJar
+}
+
+configure(install.repositories.mavenInstaller) {
+    pom.project {
+        groupId = mavenGroupId
+        artifactId = mavenArtifactId
+        version = mavenVersion
+    }
+}
+
+task createFolders(description: 'Creates the source folders if they do not exist.') doLast {
+    sourceSets*.allSource*.srcDirs*.each { File srcDir ->
+        if (!srcDir.isDirectory()) {
+            println "Creating source folder: ${srcDir}"
+            srcDir.mkdirs()
+        }
+    }
+}
