@@ -43,13 +43,17 @@ public class InstanceOperations {
         this.ec2Client = ec2Client;
     }
 
+    public void disconnectClient() {
+        ec2Client.disconnectClient();
+    }
+
 
     /**
      * Create one ec2 instance with data instance object.
      * @param instance
      * @throws InstanceOperationException
      */
-    public void createInstance(InstanceDO instance) throws InstanceOperationException {
+    public InstanceDO createInstance(InstanceDO instance) throws InstanceOperationException {
 
 
         // Check instance data object before creation.
@@ -115,35 +119,30 @@ public class InstanceOperations {
             rRequest.setSecurityGroups(securityGroupNames);
         }
         RunInstancesResult runInstancesResult;
+        List<Instance> instances;
         try {
             runInstancesResult = ec2Client.getClientInstance().runInstances(rRequest);
+            instances = runInstancesResult.getReservation().getInstances();
+
         } catch (AmazonServiceException ase) {
             logger.error("Exception thrown from aws : " + ase.getErrorCode() + " --> " + ase.getErrorMessage());
             throw new InstanceOperationException(ase);
         } catch (AmazonClientException ace) {
             logger.error("Exception thrown from aws : " + ace.getMessage());
             throw new InstanceOperationException(ace);
-        } finally {
-            ec2Client.getClientInstance().shutdown();
+        }
+        InstanceDO instanceDOToReturn = null;
+        if (instances != null && !instances.isEmpty()) {
+
+            instanceDOToReturn = InstanceDataFactory.buildInstanceDataFromModel(instances.get(0));
+            if (instanceDOToReturn != null && name != null && instanceDOToReturn.getInstanceId() != null) {
+                TagsOperation tagOperation = new TagsOperation(ec2Client);
+                tagOperation.createTag(instanceDOToReturn.getInstanceId(), "Name", name);
+            }
+
         }
 
-        List<Instance> instancesReturn = runInstancesResult.getReservation().getInstances();
-
-        String instanceProviderId = null;
-        int length;
-        for (Instance instanceAws : instancesReturn) {
-            instanceProviderId = instanceAws.getInstanceId();
-            instance.setInstanceId(instanceProviderId);
-            length = instanceAws.getPlacement().getAvailabilityZone().length();
-            instance.setZoneId(instanceAws.getPlacement().getAvailabilityZone().substring(length - 1, length));
-        }
-
-        if (name != null && instanceProviderId != null) {
-            TagsOperation tagOperation = new TagsOperation(ec2Client);
-            tagOperation.createTag(instanceProviderId, "Name", name);
-        }
-
-        ec2Client.getClientInstance().shutdown();
+        return instanceDOToReturn;
     }
 
     /**
@@ -158,13 +157,58 @@ public class InstanceOperations {
     }
 
 
-    public InstanceDO retrieveInstanceForProviderId(final String instanceId) throws InstanceOperationException {
+    /**
+     * Describe an instance for instanceProviderId ==> i-xxxxxx.
+     * @param instanceId
+     * @return
+     * @throws InstanceOperationException
+     */
+    public InstanceDO describeInstanceForInstanceProviderId(final String instanceId) throws InstanceOperationException {
         InstanceDO instanceDO = null;
+
+        if (instanceId == null) {
+            throw new InstanceOperationException("Instance id is not defined, cannot describe instance.");
+        }
+
+        List<String> instanceIds = new ArrayList<>();
+        instanceIds.add(instanceId);
         // Search for this instance
+        Filter filter = new Filter("instance-id", instanceIds);
+        List<InstanceDO> instances = describeInstanceWithFilters(filter);
 
+        if (instances != null && !instances.isEmpty()) {
+            if (instances.size() > 1) {
+                throw new InstanceOperationException("Multiple instances found for this id : " + instanceId);
+            }
+            instanceDO = instances.get(0);
+        }
 
+        return instanceDO;
+    }
 
+    /**
+     *
+     * @param name
+     * @return
+     * @throws InstanceOperationException
+     */
+    public InstanceDO describeInstanceByName(final String name) throws InstanceOperationException {
+        InstanceDO instanceDO = null;
+        if (name == null) {
+            throw new InstanceOperationException("Name is not defined, cannot describe instance.");
+        }
+        List<String> names = new ArrayList<>();
+        names.add(name);
+        List<InstanceDO> instances;
+        Filter filter = new Filter("tag-value", names);
+        instances = describeInstanceWithFilters(filter);
 
+        if (instances != null && !instances.isEmpty()) {
+            if (instances.size() > 1) {
+                throw new InstanceOperationException("Multiple instances found for this name : " + name);
+            }
+            instanceDO = instances.get(0);
+        }
         return instanceDO;
     }
 
@@ -258,7 +302,7 @@ public class InstanceOperations {
      */
     public List<InstanceDO> describeInstanceWithFilters(Filter... filters) throws InstanceOperationException {
         List<InstanceDO> instances = new ArrayList<>();
-        List<Instance> instancesAWS = new LinkedList<Instance>();
+        List<Instance> instancesAWS = new LinkedList<>();
         DescribeInstancesRequest descRequest = new DescribeInstancesRequest().withFilters(filters);
 
         try {
@@ -287,20 +331,37 @@ public class InstanceOperations {
     }
 
 
+    /**
+     * Start a group of instances for a list of provider ids.
+     * @param instanceIds
+     * @return Map will give key : instance provider Id, value : instance state name.
+     * @throws InstanceOperationException
+     */
+    public Map<String, String> startInstances(final List<String> instanceIds) throws InstanceOperationException {
 
+        if (instanceIds == null || !instanceIds.isEmpty()) {
+            throw new InstanceOperationException("Instances Ids must be provided for startInstances operation.");
+        }
 
-    public InstanceDO retrieveInstanceByName(final String name) throws InstanceOperationException {
-        InstanceDO instance = null;
+        try {
+            List<InstanceStateChange> instancesChange = ec2Client.getClientInstance().startInstances(new StartInstancesRequest(instanceIds)).getStartingInstances();
+            Map<String, String> instanceStates = new HashMap<>();
+            for (InstanceStateChange instanceChange : instancesChange) {
+                instanceStates.put(instanceChange.getInstanceId(), instanceChange.getCurrentState().getName());
+            }
 
+            return instanceStates;
+        } catch (AmazonServiceException ase) {
+            logger.error("Exception thrown from aws : " + ase.getErrorCode() + " --> " + ase.getErrorMessage());
+            throw new InstanceOperationException(ase);
+        } catch (AmazonClientException ace) {
+            logger.error("Exception thrown from aws : " + ace.getMessage());
+            throw new InstanceOperationException(ace);
+        }
 
-        return instance;
     }
 
-
-    public void startInstance() throws InstanceOperationException {
-
-    }
-    public void stopInstance() throws InstanceOperationException {
+    public void stopInstances() throws InstanceOperationException {
 
     }
     public void pauseInstance() throws InstanceOperationException {

@@ -40,5 +40,8 @@ public class AwsEC2Client {
         return this.ec2Client;
     }
 
+    public void disconnectClient() {
+        this.ec2Client.shutdown();
+    }
 
 }

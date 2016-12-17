@@ -56,4 +56,8 @@ public class AwsS3Client {
         return s3Client;
     }
 
+    public void disconnectClient() {
+        this.s3Client.shutdown();
+    }
+
 }
