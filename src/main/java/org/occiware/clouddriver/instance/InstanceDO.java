@@ -19,13 +19,13 @@
 package org.occiware.clouddriver.instance;
 
 import org.occiware.clouddriver.IAM.AclDO;
+import org.occiware.clouddriver.IAM.GroupIdentifierDO;
 import org.occiware.clouddriver.IAM.IamInstanceProfileDO;
-import org.occiware.clouddriver.IAM.SecurityGroupDO;
 import org.occiware.clouddriver.image.ImageDO;
 import org.occiware.clouddriver.image.SnapshotDO;
 import org.occiware.clouddriver.network.*;
 import org.occiware.clouddriver.storage.InstanceVolumeDO;
-import org.occiware.clouddriver.storage.VolumeDO;
+import org.occiware.clouddriver.tags.TagDO;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -58,14 +58,13 @@ public class InstanceDO implements Serializable {
     private List<LoadBalancerDO> loadBalancers;
     private List<InstanceVolumeDO> volumes;
     private List<SnapshotDO> snapshots;
-    private List<SecurityGroupDO> securityGroups;
+    private List<GroupIdentifierDO> securityGroups;
     private List<AclDO> acls;
     private String instanceClusteredGroupName;
     private String rootDeviceType;
     private String architecture;
     private PlacementDO placement;
     private String hypervisor;
-
     private String userData;
     private IamInstanceProfileDO iamInstanceProfile;
     private String monitoringState;
@@ -86,6 +85,11 @@ public class InstanceDO implements Serializable {
     private String subnetId;
     private String virtualizationType;
     private String vpcId;
+    private List<ProductCodeDO> productCodes;
+    private List<TagDO> tags;
+    private Integer instanceStateCode;
+    private String instanceStateReasonCode;
+    private String instanceStateReasonMessage;
 
 
     /**
@@ -281,14 +285,6 @@ public class InstanceDO implements Serializable {
 
     public void setKeyPairName(String keyPairName) {
         this.keyPairName = keyPairName;
-    }
-
-    public List<SecurityGroupDO> getSecurityGroups() {
-        return securityGroups;
-    }
-
-    public void setSecurityGroups(List<SecurityGroupDO> securityGroups) {
-        this.securityGroups = securityGroups;
     }
 
     public boolean isMonitoring() {
@@ -498,5 +494,53 @@ public class InstanceDO implements Serializable {
 
     public void setVpcId(String vpcId) {
         this.vpcId = vpcId;
+    }
+
+    public List<ProductCodeDO> getProductCodes() {
+        return productCodes;
+    }
+
+    public void setProductCodes(List<ProductCodeDO> productCodes) {
+        this.productCodes = productCodes;
+    }
+
+    public List<GroupIdentifierDO> getSecurityGroups() {
+        return securityGroups;
+    }
+
+    public void setSecurityGroups(List<GroupIdentifierDO> securityGroups) {
+        this.securityGroups = securityGroups;
+    }
+
+    public List<TagDO> getTags() {
+        return tags;
+    }
+
+    public void setTags(List<TagDO> tags) {
+        this.tags = tags;
+    }
+
+    public String getInstanceStateReasonCode() {
+        return instanceStateReasonCode;
+    }
+
+    public void setInstanceStateReasonCode(String instanceStateReasonCode) {
+        this.instanceStateReasonCode = instanceStateReasonCode;
+    }
+
+    public String getInstanceStateReasonMessage() {
+        return instanceStateReasonMessage;
+    }
+
+    public void setInstanceStateReasonMessage(String instanceStateReasonMessage) {
+        this.instanceStateReasonMessage = instanceStateReasonMessage;
+    }
+
+    public Integer getInstanceStateCode() {
+        return instanceStateCode;
+    }
+
+    public void setInstanceStateCode(Integer instanceStateCode) {
+        this.instanceStateCode = instanceStateCode;
     }
 }

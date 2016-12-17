@@ -19,7 +19,46 @@
 package org.occiware.clouddriver.network;
 
 /**
+ * Address ipv4 data object
  * Created by christophe on 10/12/2016.
  */
 public class IpAddressDO {
+
+    private boolean primary;
+    private String privateDnsName;
+    private String privateIpAddress;
+    private NetAssociationDO netAssociation;
+
+
+    public boolean isPrimary() {
+        return primary;
+    }
+
+    public void setPrimary(boolean primary) {
+        this.primary = primary;
+    }
+
+    public String getPrivateDnsName() {
+        return privateDnsName;
+    }
+
+    public void setPrivateDnsName(String privateDnsName) {
+        this.privateDnsName = privateDnsName;
+    }
+
+    public String getPrivateIpAddress() {
+        return privateIpAddress;
+    }
+
+    public void setPrivateIpAddress(String privateIpAddress) {
+        this.privateIpAddress = privateIpAddress;
+    }
+
+    public NetAssociationDO getNetAssociation() {
+        return netAssociation;
+    }
+
+    public void setNetAssociation(NetAssociationDO netAssociation) {
+        this.netAssociation = netAssociation;
+    }
 }

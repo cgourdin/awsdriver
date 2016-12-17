@@ -23,9 +23,13 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.ec2.model.*;
 import org.apache.log4j.Logger;
 import org.occiware.clouddriver.IAM.IamInstanceProfileDO;
-import org.occiware.clouddriver.IAM.SecurityGroupDO;
 import org.occiware.clouddriver.client.AwsEC2Client;
+import org.occiware.clouddriver.IAM.GroupIdentifierDO;
+import org.occiware.clouddriver.network.IpAddressDO;
+import org.occiware.clouddriver.network.NetAssociationDO;
+import org.occiware.clouddriver.network.NetworkInterfaceDO;
 import org.occiware.clouddriver.storage.InstanceVolumeDO;
+import org.occiware.clouddriver.tags.TagDO;
 import org.occiware.clouddriver.tags.TagsOperation;
 
 import java.util.*;
@@ -62,7 +66,7 @@ public class InstanceOperations {
         Boolean monitoring = instance.isMonitoring();
         String region = instance.getRegionId();
         String zone = instance.getZoneId();
-        List<SecurityGroupDO> securityGroups = instance.getSecurityGroups();
+        List<GroupIdentifierDO> securityGroups = instance.getSecurityGroups();
         String name = instance.getName();
         String userData = instance.getUserData();
 
@@ -109,8 +113,8 @@ public class InstanceOperations {
 
         if (securityGroups != null && !securityGroups.isEmpty()) {
             List<String> securityGroupNames = new ArrayList<>();
-            for (SecurityGroupDO secGroup : securityGroups) {
-                securityGroupNames.add(secGroup.getSecurityGroupName());
+            for (GroupIdentifierDO secGroup : securityGroups) {
+                securityGroupNames.add(secGroup.getGroupName());
             }
 
             rRequest.setSecurityGroups(securityGroupNames);
@@ -155,8 +159,7 @@ public class InstanceOperations {
      */
     public List<InstanceDO> describeInstancesForAvailabilityZone(final List<String> availabilityZones) throws InstanceOperationException {
         Filter filter = new Filter("availability-zone", availabilityZones);
-        List<InstanceDO> instances = describeInstanceWithFilters(filter);
-        return instances;
+        return describeInstanceWithFilters(filter);
     }
 
 
@@ -388,43 +391,141 @@ public class InstanceOperations {
                 List<InstanceNetworkInterface> netInts = instance.getNetworkInterfaces();
                 InstanceNetworkInterfaceAssociation netIntAsso;
                 InstanceNetworkInterfaceAttachment netIntAttach;
-                String netIntDescription;
+
                 List<GroupIdentifier> groupIdentifiers;
-
-
+                List<NetworkInterfaceDO> networkInterfaceDOs = new ArrayList<>();
+                NetworkInterfaceDO netDO;
+                List<InstancePrivateIpAddress> ipAddresses;
                 List<InstanceIpv6Address> ipv6Addresses;
                 for (InstanceNetworkInterface netInt : netInts) {
-                    netIntAsso = netInt.getAssociation();
-                    netIntAttach = netInt.getAttachment();
-                    netIntDescription = netInt.getDescription();
-                    groupIdentifiers = netInt.getGroups();
-                    ipv6Addresses = netInt.getIpv6Addresses();
-                    // TODO !!!
-                    netInt.getMacAddress();
-                    netInt.getNetworkInterfaceId();
-                    netInt.getOwnerId();
-                    netInt.getPrivateDnsName();
-                    netInt.getPrivateIpAddress();
-                    netInt.getPrivateIpAddresses();
-                    netInt.getSourceDestCheck();
-                    netInt.getStatus();
-                    netInt.getSubnetId();
-                    netInt.getVpcId();
+                    netDO = new NetworkInterfaceDO();
+                    netDO.setDescription(netInt.getDescription());
+                    netDO.setMacAddress(netInt.getMacAddress());
+                    netDO.setNetworkInterfaceId(netInt.getNetworkInterfaceId());
+                    netDO.setOwnerId(netInt.getOwnerId());
+                    netDO.setPrivateDnsName(netInt.getPrivateDnsName());
+                    netDO.setPrivateIpAddress(netInt.getPrivateIpAddress());
+                    netDO.setSourceDestCheck(netInt.getSourceDestCheck());
+                    netDO.setStatus(netInt.getStatus());
+                    netDO.setSubnetId(netInt.getSubnetId());
+                    netDO.setVpcId(netInt.getVpcId());
 
+                    netIntAsso = netInt.getAssociation();
+                    if (netIntAsso != null) {
+                        NetAssociationDO associationDO = new NetAssociationDO();
+                        associationDO.setIpOwnerId(netIntAsso.getIpOwnerId());
+                        associationDO.setPublicDnsName(netIntAsso.getPublicDnsName());
+                        associationDO.setPublicIp(netIntAsso.getPublicIp());
+                        netDO.setNetAssociation(associationDO);
+                    }
+
+                    netIntAttach = netInt.getAttachment();
+                    if (netIntAttach != null) {
+                        netDO.setAttachmentId(netIntAttach.getAttachmentId());
+                        netDO.setAttachTime(netIntAttach.getAttachTime());
+                        netDO.setDeleteOnTermination(netIntAttach.getDeleteOnTermination());
+                        netDO.setDeviceIndex(netIntAttach.getDeviceIndex());
+                        netDO.setAttachmentStatus(netIntAttach.getStatus());
+                    }
+
+                    groupIdentifiers = netInt.getGroups();
+                    if (groupIdentifiers != null && !groupIdentifiers.isEmpty()) {
+                        GroupIdentifierDO grpDO;
+                        List<GroupIdentifierDO> grpDOs = new ArrayList<>();
+                        for (GroupIdentifier grpId : groupIdentifiers) {
+                            grpDO = new GroupIdentifierDO();
+                            grpDO.setGroupId(grpId.getGroupId());
+                            grpDO.setGroupName(grpId.getGroupName());
+                            grpDOs.add(grpDO);
+                        }
+                        netDO.setSecurityGroups(grpDOs);
+                    }
+
+                    ipv6Addresses = netInt.getIpv6Addresses();
+                    if (ipv6Addresses != null && !ipv6Addresses.isEmpty()) {
+                        List<String> ipv6AddressesStr = new ArrayList<>();
+                        for (InstanceIpv6Address ipv6Address : ipv6Addresses) {
+                            ipv6AddressesStr.add(ipv6Address.getIpv6Address());
+                        }
+                        netDO.setIpv6Addresses(ipv6AddressesStr);
+                    }
+
+                    ipAddresses = netInt.getPrivateIpAddresses();
+                    if (ipAddresses != null && !ipAddresses.isEmpty()) {
+                        List<IpAddressDO> ipAddressDOs = new ArrayList<>();
+                        IpAddressDO addressDO;
+                        InstanceNetworkInterfaceAssociation netAsso;
+                        for (InstancePrivateIpAddress ipAddress : ipAddresses) {
+                            addressDO = new IpAddressDO();
+                            addressDO.setPrimary(ipAddress.isPrimary());
+                            addressDO.setPrivateDnsName(ipAddress.getPrivateDnsName());
+                            addressDO.setPrivateIpAddress(ipAddress.getPrivateIpAddress());
+                            netAsso = ipAddress.getAssociation();
+                            if (netAsso != null) {
+                                NetAssociationDO associationDO = new NetAssociationDO();
+                                associationDO.setIpOwnerId(netAsso.getIpOwnerId());
+                                associationDO.setPublicDnsName(netAsso.getPublicDnsName());
+                                associationDO.setPublicIp(netAsso.getPublicIp());
+                                addressDO.setNetAssociation(associationDO);
+                            }
+                            ipAddressDOs.add(addressDO);
+                        }
+                        netDO.setIpAddresses(ipAddressDOs);
+                    }
+
+                    networkInterfaceDOs.add(netDO);
+                }
+                instanceDO.setNetworkAdapters(networkInterfaceDOs);
+            }
+
+            List<ProductCode> productCodes = instance.getProductCodes();
+            if (productCodes != null && !productCodes.isEmpty()) {
+                List<ProductCodeDO> productCodeDOs = new ArrayList<>();
+                ProductCodeDO productCodeDO;
+                for (ProductCode productCode : productCodes) {
+                    productCodeDO = new ProductCodeDO();
+                    productCodeDO.setProductCodeId(productCode.getProductCodeId());
+                    productCodeDO.setProductCodeType(productCode.getProductCodeType());
+                    productCodeDOs.add(productCodeDO);
+                }
+                instanceDO.setProductCodes(productCodeDOs);
+            }
+
+            List<GroupIdentifier> groups = instance.getSecurityGroups();
+            if (groups != null && !groups.isEmpty()) {
+                GroupIdentifierDO groupIdentifierDO;
+                List<GroupIdentifierDO> groupIdentifierDOs = new ArrayList<>();
+                for (GroupIdentifier group : groups) {
+                    groupIdentifierDO = new GroupIdentifierDO();
+                    groupIdentifierDO.setGroupId(group.getGroupId());
+                    groupIdentifierDO.setGroupName(group.getGroupName());
+                    groupIdentifierDOs.add(groupIdentifierDO);
+                }
+                instanceDO.setSecurityGroups(groupIdentifierDOs);
+            }
+
+            InstanceState state = instance.getState();
+            if (state != null) {
+                instanceDO.setInstanceState(state.getName());
+                instanceDO.setInstanceStateCode(state.getCode());
+                StateReason stateReason = instance.getStateReason();
+                if (stateReason != null) {
+                    instanceDO.setInstanceStateReasonMessage(stateReason.getMessage());
+                    instanceDO.setInstanceStateReasonCode(stateReason.getCode());
                 }
             }
 
-            instance.getNetworkInterfaces();
 
-
-
-            // TODO : instance.getProductCodes();
-
-            instance.getSecurityGroups();
-            instance.getState();
-            instance.getStateReason();
-            instance.getTags();
-
+            List<Tag> tags = instance.getTags();
+            if (tags != null && !tags.isEmpty()) {
+                TagDO tagDO;
+                List<TagDO> tagDOs = new ArrayList<>();
+                for (Tag tag : tags) {
+                    tagDO = new TagDO(tag.getKey(), tag.getValue());
+                    tagDOs.add(tagDO);
+                }
+                instanceDO.setTags(tagDOs);
+            }
 
 
         }

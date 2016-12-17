@@ -19,17 +19,27 @@
 package org.occiware.clouddriver.IAM;
 
 /**
- * Created by christophe on 10/12/2016.
+ * Represents security group identifier.
+ * Created by christophe on 17/12/2016.
  */
-public class SecurityGroupDO {
+public class GroupIdentifierDO {
 
-    private String securityGroupName;
+    private String groupId;
+    private String groupName;
 
-    public String getSecurityGroupName() {
-        return securityGroupName;
+    public String getGroupId() {
+        return groupId;
     }
 
-    public void setSecurityGroupName(String securityGroupName) {
-        this.securityGroupName = securityGroupName;
+    public void setGroupId(String groupId) {
+        this.groupId = groupId;
+    }
+
+    public String getGroupName() {
+        return groupName;
+    }
+
+    public void setGroupName(String groupName) {
+        this.groupName = groupName;
     }
 }
